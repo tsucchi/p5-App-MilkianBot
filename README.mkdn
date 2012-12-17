@@ -1,0 +1,26 @@
+# NAME
+
+App::MilkianBot - ミルキィホームズとか中の人っぽい発言をおいかける bot です。
+
+# SYNOPSIS
+
+興味がある人は @milkian\_bot をフォローしてね。
+
+# DESCRIPTION
+
+中の人の tweet を公式RTします。
+
+- 中の人の tweet を公式 RT します
+- @milkian\_bot に「TMTOWTDI」または「There's more than one way to do it」というメンションを投げると、「正解はひとつ！じゃない！！」と返します。
+- @milkian\_bot に「俺のタンメンまだー？」というメンションを投げると、「まだですぅー」と返します。
+
+# AUTHOR
+
+takuya.tsuchida <tsucchi {at} cpan.org>
+
+# SEE ALSO
+
+# LICENSE
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.

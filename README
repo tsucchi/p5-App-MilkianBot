@@ -1,27 +1,28 @@
-This is Perl module App::MilkianBot.
+NAME
+    App::MilkianBot -
+    ミル�ィホー� ズとか�の人っぽい発言をおいかける
+    bot です。
 
-INSTALLATION
+SYNOPSIS
+    興味がある人は @milkian_bot をフォ�ーして�。
 
-App::MilkianBot installation is straightforward. If your CPAN shell is set up,
-you should just be able to do
+DESCRIPTION
+    �の人の tweet を公式RTします。
 
-    % cpan App::MilkianBot
+    �の人の tweet を公式 RT します
+    @milkian_bot に「TMTOWTDI」または「There's more than one way to
+    do
+    it」というメンションを投げると、「�解はひとつ！�
+    ��ゃない！！」と返します。
+    @milkian_bot
+    に「俺のタンメンま� ー？」というメンションを投げ
+    ると、「ま� ですぅー」と返します。
 
-Download it, unpack it, then build it as per the usual:
+AUTHOR
+    takuya.tsuchida <tsucchi {at} cpan.org>
 
-    % perl Makefile.PL
-    % make && make test
+SEE ALSO
+LICENSE
+    This library is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
 
-Then install it:
-
-    % make install
-
-DOCUMENTATION
-
-App::MilkianBot documentation is available as in POD. So you can do:
-
-    % perldoc App::MilkianBot
-
-to read the documentation online with your favorite pager.
-
-takuya.tsuchida
