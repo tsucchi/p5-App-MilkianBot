@@ -16,8 +16,6 @@ App::MilkianBot - ミルキィホームズとか中の人っぽい発言をお�
 
 =head1 DESCRIPTION
 
-中の人の tweet を公式RTします。
-
 =over 2
 
 =item 中の人の tweet を公式 RT します
