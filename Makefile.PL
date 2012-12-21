@@ -9,6 +9,7 @@ requires 'AnyEvent::Twitter';
 requires 'AnyEvent::Twitter::Stream';
 requires 'Net::SSLeay';
 requires 'App::Daemon';
+requires 'Class::Accessor::Lite';
 
 tests 't/*.t';
 author_tests 'xt';
