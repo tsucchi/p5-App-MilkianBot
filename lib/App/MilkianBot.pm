@@ -104,8 +104,8 @@ sub run {
             if ( $self->_is_nakano_hito_s_tweet($tweet) ) {
                 $self->do_rt($tweet->{id}, $user, $text);
             }
-            if ( $self->_is_mention_to_me($tweet->{id}, $user, $text) ) {
-                $self->reply_to_mention_using_keyword($tweet);
+            if ( $self->_is_mention_to_me($tweet) ) {
+                $self->reply_to_mention_using_keyword($tweet->{id}, $user, $text);
             }
         },
         on_error => sub {
