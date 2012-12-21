@@ -1,11 +1,16 @@
 package App::MilkianBot;
 use strict;
 use warnings;
+use utf8;
 use Class::Accessor::Lite (
-    ro => ['my_id', '_cred', '_following_ids'],
+    ro => ['my_id', '_cred', '_following_ids', 'twitty', '_mention_for'],
 );
+
 use AnyEvent::Twitter;
 use Config::Pit;
+use Net::SSLeay; # for AnyEvent::Twitter::Stream
+use AnyEvent::Twitter::Stream;
+use List::MoreUtils qw(any);
 
 our $VERSION = '0.01';
 
@@ -20,9 +25,15 @@ sub new {
             '161910608', #'izugyoza',
             '94825321',  #'milkyholmes',
         ],
+        _mention_for => {
+            qr/TMTOWTDI/                             => '正解はひとつ！じゃない！！',
+            qr/There's more than one way to do it/   => '正解はひとつ！じゃない！！',
+            qr/(俺|オレ)のタンメンまだ(ー|〜)?(\?|？)/ => 'まだですぅー',
+        },
     };
     bless $self, $class;
     $self->_init_credential();
+    $self->{twitty} = AnyEvent::Twitter->new($self->credential);
     return $self;
 }
 
@@ -54,20 +65,103 @@ sub following_ids {
     return @{ $self->_following_ids };
 }
 
+sub mention_for {
+    my ($self) = @_;
+    return %{ $self->_mention_for };
+}
+
 # 単発の tweet を投げます
 sub simple_tweet {
     my ($self, $tweet) = @_;
 
-    my $done = AnyEvent->condvar;
-    my $twitty = AnyEvent::Twitter->new($self->credential);
-    $done->begin;
-    $twitty->post('statuses/update', {
+    my $cv = AnyEvent->condvar;
+    $cv->begin;
+    $self->twitty->post('statuses/update', {
         status => $tweet,
     }, sub {
         my ($header, $response, $reason) = @_;
-        $done->end;
+        $cv->end;
     });
-    $done->recv;
+    $cv->recv;
+}
+
+# bot として実行します。
+sub run {
+    my ($self) = @_;
+
+    my $cv = AnyEvent->condvar;
+    my $listener = AnyEvent::Twitter::Stream->new(
+        $self->credential,
+        method   => 'filter',
+        follow   => join(',', ($self->following_ids, $self->my_id)),
+        on_tweet => sub {
+            my $tweet = shift;
+            my $user = $tweet->{user}->{screen_name};
+            my $text = ($tweet->{text} || '');
+
+            return unless $user && $text;
+
+            if ( $self->_is_nakano_hito_s_tweet($tweet) ) {
+                $self->do_rt($tweet->{id}, $user, $text);
+            }
+            if ( $self->_is_mention_to_me($tweet->{id}, $user, $text) ) {
+                $self->reply_to_mention_using_keyword($tweet);
+            }
+        },
+        on_error => sub {
+            my $error = shift;
+            print "ERROR: $error";
+            $cv->send;
+        },
+        on_eof   => sub {
+            print "EOF\n";
+            $cv->send;
+        },
+    );
+    $cv->recv;
+}
+
+# 公式 RT を投げる
+sub do_rt {
+    my ($self, $id, $user, $text) = @_;
+    $self->twitty->post("statuses/retweet/$id", {
+    }, sub {
+        my ($header, $response, $reason) = @_;
+        print "retweeted: $user : $text\n";
+    });
+}
+
+# メンションに対して特定のキーワードが含まれている場合に reply を返す
+# 例) 「俺のタンメンまだー？」 => 「まだですぅー」
+sub reply_to_mention_using_keyword {
+    my ($self, $id, $user, $text) = @_;
+    print "$user : $text\n";
+    my %mention_for = $self->mention_for;
+    for my $keyword ( keys %mention_for ) {
+        my $message = $mention_for{$keyword};
+        if ( $text =~ $keyword ) {
+            my $reply_message = "\@$user $message";
+            $self->twitty->post("statuses/update", {
+                status                => $reply_message,
+                in_reply_to_status_id => $id,
+            }, sub {
+                my ($header, $response, $reason) = @_;
+                print "$reply_message\n";
+            });
+        }
+    }
+}
+
+# 中の人の tweet かどうか
+sub _is_nakano_hito_s_tweet {
+    my ($self, $tweet) = @_;
+    return any { $_ eq $tweet->{user}->{id} } $self->following_ids;
+}
+
+# milkian_bot へのメンションかどうか
+sub _is_mention_to_me {
+    my ($self, $tweet) = @_;
+    return defined $tweet->{in_reply_to_user_id} && $tweet->{in_reply_to_user_id} eq $self->my_id;
 }
 
 1;
