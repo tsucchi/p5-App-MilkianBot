@@ -8,6 +8,7 @@ requires 'Config::Pit';
 requires 'AnyEvent::Twitter';
 requires 'AnyEvent::Twitter::Stream';
 requires 'Net::SSLeay';
+requires 'App::Daemon';
 
 tests 't/*.t';
 author_tests 'xt';

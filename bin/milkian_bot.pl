@@ -7,8 +7,11 @@ use Net::SSLeay; # for AnyEvent::Twitter::Stream
 use AnyEvent::Twitter::Stream;
 use utf8;
 use List::MoreUtils qw(any);
+use App::Daemon qw(daemonize);
 
 binmode STDOUT, ":utf8";
+
+daemonize();
 
 my @following_ids = (
     '114700374', #'mimori_suzuko',
