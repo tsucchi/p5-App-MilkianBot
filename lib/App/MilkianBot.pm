@@ -11,7 +11,9 @@ use Config::Pit;
 use Net::SSLeay; # for AnyEvent::Twitter::Stream
 use AnyEvent::Twitter::Stream;
 use List::MoreUtils qw(any);
+use Encode;
 
+binmode STDOUT, ":utf8";
 our $VERSION = '0.01';
 
 sub new {
@@ -110,7 +112,7 @@ sub run {
         },
         on_error => sub {
             my $error = shift;
-            print "ERROR: $error";
+            print "ERROR: " . decode_utf8($error);
             $cv->send;
         },
         on_eof   => sub {
