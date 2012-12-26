@@ -123,7 +123,7 @@ sub run {
             $cv->send;
         },
         on_eof   => sub {
-            $self->logging("EOF\n");
+            $self->logging("EOF");
             $cv->send;
         },
     );
