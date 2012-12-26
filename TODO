@@ -1,7 +1,4 @@
-- daemonize 
-  $App::Daemon::background で daemonize されてるかどうか判定できるらしい
 - init スクリプト(自動再起動かかるように)
-- ログ(daemonize のときはファイル、それ以外は標準出力)
 - 自動デプロイ(cron + シェル)
 
 

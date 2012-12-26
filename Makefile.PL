@@ -10,6 +10,8 @@ requires 'AnyEvent::Twitter::Stream';
 requires 'Net::SSLeay';
 requires 'App::Daemon';
 requires 'Class::Accessor::Lite';
+requires 'Log::Minimal';
+requires 'File::Stamped';
 
 tests 't/*.t';
 author_tests 'xt';

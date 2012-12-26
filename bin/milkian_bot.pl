@@ -11,7 +11,7 @@ binmode STDOUT, ":utf8";
 
 daemonize();
 
-my $bot = App::MilkianBot->new();
+my $bot = App::MilkianBot->new({ background => $App::Daemon::background });
 $bot->run;
 
 

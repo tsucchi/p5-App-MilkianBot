@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use utf8;
 use Class::Accessor::Lite (
-    ro => ['my_id', '_cred', '_following_ids', 'twitty', '_mention_for'],
+    ro => ['my_id', '_cred', '_following_ids', 'twitty', '_mention_for', 'is_background'],
 );
 
 use AnyEvent::Twitter;
@@ -12,12 +12,18 @@ use Net::SSLeay; # for AnyEvent::Twitter::Stream
 use AnyEvent::Twitter::Stream;
 use List::MoreUtils qw(any);
 use Encode;
+use File::Stamped;
+use Log::Minimal;
+use FindBin;
 
 binmode STDOUT, ":utf8";
+binmode STDERR, ":utf8";
+
 our $VERSION = '0.01';
 
 sub new {
-    my ($class) = @_;
+    my ($class, $option_href) = @_;
+    my $is_background = defined $option_href->{background} ? $option_href->{background} : 0;
     my $self = {
         my_id => '962596830', #milkian_bot
         _following_ids => [
@@ -32,6 +38,7 @@ sub new {
             qr/There's more than one way to do it/   => '正解はひとつ！じゃない！！',
             qr/(俺|オレ)のタンメンまだ(ー|〜)?(\?|？)/ => 'まだですぅー',
         },
+        is_background => $is_background,
     };
     bless $self, $class;
     $self->_init_credential();
@@ -90,7 +97,7 @@ sub simple_tweet {
 # bot として実行します。
 sub run {
     my ($self) = @_;
-
+    $self->logging('start');
     my $cv = AnyEvent->condvar;
     my $listener = AnyEvent::Twitter::Stream->new(
         $self->credential,
@@ -112,11 +119,11 @@ sub run {
         },
         on_error => sub {
             my $error = shift;
-            print "ERROR: " . decode_utf8($error);
+            $self->logging("ERROR: " . decode_utf8($error));
             $cv->send;
         },
         on_eof   => sub {
-            print "EOF\n";
+            $self->logging("EOF\n");
             $cv->send;
         },
     );
@@ -129,7 +136,7 @@ sub do_rt {
     $self->twitty->post("statuses/retweet/$id", {
     }, sub {
         my ($header, $response, $reason) = @_;
-        print "retweeted: $user : $text\n";
+        $self->logging("retweeted: $user : $text\n");
     });
 }
 
@@ -137,7 +144,7 @@ sub do_rt {
 # 例) 「俺のタンメンまだー？」 => 「まだですぅー」
 sub reply_to_mention_using_keyword {
     my ($self, $id, $user, $text) = @_;
-    print "$user : $text\n";
+    $self->logging("$user : $text\n");
     my %mention_for = $self->mention_for;
     for my $keyword ( keys %mention_for ) {
         my $message = $mention_for{$keyword};
@@ -148,7 +155,7 @@ sub reply_to_mention_using_keyword {
                 in_reply_to_status_id => $id,
             }, sub {
                 my ($header, $response, $reason) = @_;
-                print "$reply_message\n";
+                $self->logging("$reply_message\n");
             });
         }
     }
@@ -165,6 +172,22 @@ sub _is_mention_to_me {
     my ($self, $tweet) = @_;
     return defined $tweet->{in_reply_to_user_id} && $tweet->{in_reply_to_user_id} eq $self->my_id;
 }
+
+sub logging {
+    my ($self, $message) = @_;
+    my $fh = File::Stamped->new(pattern => "$FindBin::RealBin/../milkian_bot.%Y%m%d.log");
+    local $Log::Minimal::PRINT = sub {
+        my ($time, $type, $message, $trace) = @_;
+        if( $self->is_background ) {
+            print {$fh} "$time [$type] $message at $trace\n";
+        }
+        else {
+            warn "$time [$type] $message at $trace\n";
+        }
+    };
+    infof $message;
+}
+
 
 1;
 __END__
