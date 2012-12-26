@@ -3,6 +3,8 @@ use strict;
 use warnings;
 use utf8;
 use Encode;
+use FindBin;
+use lib "$FindBin::RealBin/../lib";
 use App::MilkianBot;
 
 binmode STDOUT, ":utf8";
