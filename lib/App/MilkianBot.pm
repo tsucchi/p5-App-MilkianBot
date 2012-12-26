@@ -97,7 +97,9 @@ sub simple_tweet {
 # bot として実行します。
 sub run {
     my ($self) = @_;
-    $self->logging('start');
+
+    $self->logging('start', 'warn');
+
     my $cv = AnyEvent->condvar;
     my $listener = AnyEvent::Twitter::Stream->new(
         $self->credential,
@@ -119,11 +121,11 @@ sub run {
         },
         on_error => sub {
             my $error = shift;
-            $self->logging("ERROR: " . decode_utf8($error));
+            $self->logging("ERROR: " . decode_utf8($error), 'warn');
             $cv->send;
         },
         on_eof   => sub {
-            $self->logging("EOF");
+            $self->logging("EOF", 'warn');
             $cv->send;
         },
     );
@@ -174,7 +176,8 @@ sub _is_mention_to_me {
 }
 
 sub logging {
-    my ($self, $message) = @_;
+    my ($self, $message, $severity) = @_;
+
     my $fh = File::Stamped->new(pattern => "$FindBin::RealBin/../milkian_bot.%Y%m%d.log");
     local $Log::Minimal::PRINT = sub {
         my ($time, $type, $message, $trace) = @_;
@@ -185,8 +188,23 @@ sub logging {
             warn "$time [$type] $message at $trace\n";
         }
     };
-    infof $message;
+
+    $severity = 'info' if ( !defined $severity );
+    if( $severity eq 'info' ) {
+        infof $message;
+    }
+    elsif ( $severity eq 'warn' || $severity eq 'warning' ) {
+        warnf $message;
+    }
+    elsif( $severity eq 'crit' || $severity eq 'critical' ) {
+        critf $message;
+    }
+    else {
+        debugf $message;
+    }
+
 }
+
 
 
 1;
