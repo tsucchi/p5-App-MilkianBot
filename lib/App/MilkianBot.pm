@@ -15,6 +15,7 @@ use Encode;
 use File::Stamped;
 use Log::Minimal;
 use FindBin;
+use File::Basename;
 
 binmode STDOUT, ":utf8";
 binmode STDERR, ":utf8";
@@ -181,11 +182,12 @@ sub logging {
     my $fh = File::Stamped->new(pattern => "$FindBin::RealBin/../milkian_bot.%Y%m%d.log");
     local $Log::Minimal::PRINT = sub {
         my ($time, $type, $message, $trace) = @_;
+        my $app = basename($0);
         if( $self->is_background ) {
-            print {$fh} "$time [$type] $message at $trace\n";
+            print {$fh} "$time [$app:$$] $type $message at $trace\n";
         }
         else {
-            warn "$time [$type] $message at $trace\n";
+            warn "$time [$app:$$] $type $message at $trace\n";
         }
     };
 

@@ -12,6 +12,7 @@ requires 'App::Daemon';
 requires 'Class::Accessor::Lite';
 requires 'Log::Minimal';
 requires 'File::Stamped';
+requires 'Proclet';
 
 tests 't/*.t';
 author_tests 'xt';
