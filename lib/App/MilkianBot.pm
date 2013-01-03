@@ -17,9 +17,6 @@ use Log::Minimal;
 use FindBin;
 use File::Basename;
 
-binmode STDOUT, ":utf8";
-binmode STDERR, ":utf8";
-
 our $VERSION = '0.01';
 
 sub new {
@@ -183,11 +180,12 @@ sub logging {
     local $Log::Minimal::PRINT = sub {
         my ($time, $type, $message, $trace) = @_;
         my $app = basename($0);
+        my $encoded_message = encode_utf8("$time [$app:$$] $type $message at $trace\n");
         if( $self->is_background ) {
-            print {$fh} "$time [$app:$$] $type $message at $trace\n";
+            print {$fh} $encoded_message;
         }
         else {
-            warn "$time [$app:$$] $type $message at $trace\n";
+            warn $encoded_message;
         }
     };
 
