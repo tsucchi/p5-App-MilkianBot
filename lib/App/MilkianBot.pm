@@ -30,6 +30,7 @@ sub new {
             '244788445', #'mikoiwate_351',
             '161910608', #'izugyoza',
             '94825321',  #'milkyholmes',
+            '349409029', #'sorapiyo_bot',
         ],
         _mention_for => {
             qr/TMTOWTDI/                             => '正解はひとつ！じゃない！！',
