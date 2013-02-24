@@ -1,4 +1,7 @@
 Revision history for Perl extension App::MilkianBot
+0.02    2013/02/24
+        - そろそろちゃんとバージョン管理しようかな
+        - RT する対象にそらぴよ bot 追加
 
 0.01    Mon Dec 17 14:09:56 2012
         - original version
