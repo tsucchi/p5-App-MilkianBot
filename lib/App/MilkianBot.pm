@@ -16,6 +16,7 @@ use File::Stamped;
 use Log::Minimal;
 use FindBin;
 use File::Basename;
+use Time::Piece;
 
 our $VERSION = '0.02';
 
@@ -100,6 +101,7 @@ sub run {
     $self->logging('start', 'warn');
 
     my $cv = AnyEvent->condvar;
+    my $good_morning_timer = $self->good_morning_timer();
     my $listener = AnyEvent::Twitter::Stream->new(
         $self->credential,
         method   => 'filter',
@@ -140,6 +142,37 @@ sub do_rt {
         $self->logging("retweeted: $user : $text\n");
     });
 }
+
+# おはよーおはよーを実行するタイマーを返す
+sub good_morning_timer {
+    my ($self) = @_;
+
+    return AnyEvent->timer(
+        after    => 0,
+        interval => 300,
+        cb       => sub {
+            my $now = Time::Piece->new(AnyEvent->time);
+            my $ymd = $now->ymd;
+            my $format = "%Y-%m-%d %H:%M:%S";
+            my $begin = localtime(Time::Piece->strptime("$ymd 07:00:00", $format));
+
+            my $end   = $begin + 600; # 10 min after
+
+            return if ( $self->{greeted}->{$ymd} );#あいさつ済みならこれ以上しない
+
+            if( $begin < $now && $now < $end ) {
+                $self->twitty->post('statuses/update', {
+                    status => 'おはよーおはよー',
+                }, sub {
+                    my ($header, $response, $reason) = @_;
+                });
+                #print "おはよーおはよー\n";
+                $self->{greeted}->{$ymd} = 1;#今日の挨拶は完了
+            }
+        },
+    );
+}
+
 
 # メンションに対して特定のキーワードが含まれている場合に reply を返す
 # 例) 「俺のタンメンまだー？」 => 「まだですぅー」
