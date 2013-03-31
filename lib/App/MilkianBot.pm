@@ -1,5 +1,4 @@
 package App::MilkianBot;
-use lib qw(../App-FanBot/lib);#一時的な措置
 use parent qw(App::FanBot);
 use strict;
 use warnings;
@@ -21,7 +20,7 @@ sub new {
     my $self = $class->SUPER::new($option_href);
     my %option = (
         my_id => '962596830', #milkian_bot
-        _following_ids => [
+        _official_ids => [
             '114700374', #'mimori_suzuko',
             '261196483', #'tokui_sorangley',
             '244788445', #'mikoiwate_351',
@@ -124,7 +123,7 @@ sub run {
     my $listener = AnyEvent::Twitter::Stream->new(
         $self->credential,
         method   => 'filter',
-        follow   => join(',', ($self->following_ids, $self->my_id)),
+        follow   => join(',', ($self->official_ids, $self->my_id)),
         on_tweet => sub {
             my $tweet = shift;
             my $user = $tweet->{user}->{screen_name};
@@ -132,7 +131,7 @@ sub run {
 
             return unless $user && $text;
 
-            if ( $self->is_nakano_hito_s_tweet($tweet) ) {
+            if ( $self->is_official($tweet) ) {
                 $self->do_rt($tweet->{id}, $user, $text);
             }
             if ( $self->is_mention_to_me($tweet) ) {
@@ -203,12 +202,6 @@ sub reply_to_mention_using_keyword {
             });
         }
     }
-}
-
-# 中の人の tweet かどうか
-sub is_nakano_hito_s_tweet {
-    my ($self, $tweet) = @_;
-    return $self->is_following($tweet);
 }
 
 

@@ -4,13 +4,14 @@ App::MilkianBot - ミルキィホームズとか中の人っぽい発言をお�
 
 # SYNOPSIS
 
-興味がある人は @milkian\_bot をフォローしてね。
+興味がある人は @milkian\_bot をフォローしてね。興味がなくて、RT されるのがウザいと思う方はお手数ですがブロックしてください。
 
 # DESCRIPTION
 
 - 中の人の tweet を公式 RT します
 - @milkian\_bot に「TMTOWTDI」または「There's more than one way to do it」というメンションを投げると、「正解はひとつ！じゃない！！」と返します。
 - @milkian\_bot に「俺のタンメンまだー？」というメンションを投げると、「まだですぅー」と返します。
+- ミルキィホームズとか、中の人っぽい話題を検索して、RT します。邪魔だと思われる方は、お手数ですが @milkian\_bot をブロックしてください。
 
 # AUTHOR
 

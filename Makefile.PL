@@ -4,15 +4,10 @@ all_from             'lib/App/MilkianBot.pm';
 readme_from          'lib/App/MilkianBot.pm';
 readme_markdown_from 'lib/App/MilkianBot.pm';
 
-requires 'Config::Pit';
-requires 'AnyEvent::Twitter';
+requires 'App::FanBot';
 requires 'AnyEvent::Twitter::Stream';
 requires 'Net::SSLeay';
-requires 'App::Daemon';
 requires 'Class::Accessor::Lite';
-requires 'Log::Minimal';
-requires 'File::Stamped';
-requires 'Proclet';
 
 tests 't/*.t';
 author_tests 'xt';

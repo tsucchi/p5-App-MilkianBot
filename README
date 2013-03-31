@@ -4,7 +4,10 @@ NAME
     bot です。
 
 SYNOPSIS
-    興味がある人は @milkian_bot をフォ�ーして�。
+    興味がある人は @milkian_bot
+    をフォ�ーして�。興味がなくて、RT
+    されるのがウザいと思う方はお手数ですがブ�ックし
+    てく� さい。
 
 DESCRIPTION
     �の人の tweet を公式 RT します
@@ -15,6 +18,9 @@ DESCRIPTION
     @milkian_bot
     に「俺のタンメンま� ー？」というメンションを投げ
     ると、「ま� ですぅー」と返します。
+    ミル�ィホー� ズとか、�の人っぽい話題を検索して
+    、RT します。邪�� と思われる方は、お手数ですが
+    @milkian_bot をブ�ックしてく� さい。
 
 AUTHOR
     takuya.tsuchida <tsucchi {at} cpan.org>
