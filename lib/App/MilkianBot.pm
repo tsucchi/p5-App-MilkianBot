@@ -14,7 +14,8 @@ use AnyEvent::Twitter;
 use Config::Pit;
 use Net::SSLeay; # for AnyEvent::Twitter::Stream
 use AnyEvent::Twitter::Stream;
-use List::MoreUtils qw(any);
+use List::MoreUtils qw(any all);
+use List::Util qw(max);
 use Encode;
 use File::Stamped;
 use Log::Minimal;
@@ -77,6 +78,10 @@ sub new {
             'Kazami_Kazuki',
             'yukari_A_bot',
             'benymd_bot',
+            'kyou_jza',
+            'shinshiyamap',
+            'Rin_Hoshizora',
+            'Now_Mitha',
         ],
         _exclude_patterns => [ # 定期ポストなどを除外
             '^RT',
@@ -85,6 +90,7 @@ sub new {
             '#なうぷれ',
             '【拡散希望】',
             '#RTした人フォローする',
+            '#RTした人全員フォローする',
             'そらまる団',
             # どうやら中の人たちと同じ渾名をもってる方(みもりんっていっぱいいるのね。。。)
             '@Mimo_Rine',
@@ -98,6 +104,7 @@ sub new {
             'eventernote.com',
             'za4.ch',
             'books.rakuten.co.jp',
+            'botchan.biz',
         ],
         _exclude_clients => [ # 定期ポストに使っているクライアント
             'twittbot.net',
@@ -110,6 +117,13 @@ sub new {
             'なうぷれTunes',
             'LikeBoard',
             'SongsInfo on iOS',
+            'TWTunes',
+            'RakutenSuperRecommend',
+            'JoyHack',
+            'これ聴いてるんだからねっ！',
+            'wktk',
+            'TweetMag1c MusicEdition',
+            'Amzn777',
         ],
         _search_keywords => [
             '#milkyholmes',
@@ -122,16 +136,8 @@ sub new {
             '徳井青空',
             '佐々木未来',
             '橘田いずみ',
-            'ミルキアン',
-            # ↓入れたいんだけど、ちょっとノイズが増えすぎるのでやめてる
-            # 'ミルキィ',
-            # 'シャロ',
-            # 'ネロ',
-            # 'エリー',
-            # 'エルキュール',
-            # 'コーデリア',
         ],
-        search_interval => 60,
+        search_interval => 120,
     };
     bless $self, $class;
     $self->_init_credential();
@@ -207,7 +213,12 @@ sub simple_tweet {
     $self->twitty->post('statuses/update', {
         status => $tweet,
     }, sub {
-        my ($header, $response, $reason) = @_;
+        my ($header, $response, $reason, $error) = @_;
+        if( defined $error ) {
+            my $code = $error->{errors}->[0]->{code};
+            my $msg  = $error->{errors}->[0]->{message};
+            $self->logging("$code : $msg", 'warn');
+        }
         $cv->end;
     });
     $cv->recv;
@@ -218,10 +229,12 @@ sub run {
     my ($self) = @_;
 
     $self->logging('start', 'warn');
+    $self->update_latest_since_id();
 
     my $cv = AnyEvent->condvar;
     my $good_morning_timer = $self->good_morning_timer();
-    my $search_timer       = $self->search_timer();
+    my $search_timer = $self->search_timer();
+
     my $listener = AnyEvent::Twitter::Stream->new(
         $self->credential,
         method   => 'filter',
@@ -259,9 +272,17 @@ sub update_latest_since_id {
     $self->twitty->get('statuses/home_timeline', {
         count => '1',
     }, sub {
-        my ($header, $response, $reason) = @_;
-        if( defined $response->[0]->{id} ) {
-            $self->{since_id} = { since_id => $response->[0]->{id} };
+        my ($header, $response, $reason, $error) = @_;
+        if( defined $error ) {
+            my $code = $error->{errors}->[0]->{code};
+            my $msg  = $error->{errors}->[0]->{message};
+            $self->logging("$code : $msg", 'warn');
+            return;
+        }
+        my $id = $response->[0]->{id};
+        if( defined $id) {
+            $id = max($id, $self->{since_id}->{since_id}) if ( defined $self->{since_id} );
+            $self->{since_id} = { since_id => $id };
         }
     });
 }
@@ -270,10 +291,10 @@ sub update_latest_since_id {
 sub search_timer {
     my ($self) = @_;
     return AnyEvent->timer(
-        after    => 0,
-        interval => $self->search_interval || 60,
+        after    => 5,# latest_id_update を待つため
+        interval => $self->search_interval || 120,
         cb       => sub {
-            $self->update_latest_since_id();
+            return if ( !defined $self->{since_id} );
             for my $keyword ( $self->search_keywords ) {
                 $self->search_and_rt($keyword);
             }
@@ -283,12 +304,19 @@ sub search_timer {
 
 sub search_and_rt {
     my ($self, $keyword) = @_;
-
     $self->twitty->get('search/tweets', {
-        q => $keyword,
+        q           => $keyword,
+        count       => 100,
+        result_type => 'recent',
         %{ $self->{since_id} || {} },
     }, sub {
-        my ($header, $response, $reason) = @_;
+        my ($header, $response, $reason, $error) = @_;
+        if( defined $error && $error->{errors} ) {
+            my $code = $error->{errors}->[0]->{code};
+            my $msg  = $error->{errors}->[0]->{message};
+            $self->logging("$code : $msg", 'warn');
+            return;
+        }
         my @tweets = @{ $response->{statuses} || [] };
         for my $tweet ( sort { $a->{id} <=> $b->{id} } @tweets ) {
             my $user   = $tweet->{user}->{screen_name};
@@ -305,7 +333,21 @@ sub search_and_rt {
             $self->do_rt($id, $user, $text);
             push @{ $self->{tweeted} }, $id;
         }
+        $self->{searched}->{$keyword} = 1;
+        $self->reflesh_searched();
     });
+}
+
+
+# 全部のキーワードに対して検索を投げ終わったら、since_id を更新して tweet 済みのリストを消す
+sub reflesh_searched {
+    my ($self) = @_;
+    if( all {  $self->{searched}->{$_} } $self->search_keywords ) {
+        my $max_id = max($self->{since_id}->{since_id}, @{ $self->{tweeted} });
+        $self->{since_id} = { since_id => $max_id };
+        $self->{tweeted} = [];
+        $self->{searched} = {};
+    }
 }
 
 sub is_exclude_url {
@@ -320,11 +362,22 @@ sub is_exclude_url {
 # 公式 RT を投げる
 sub do_rt {
     my ($self, $id, $user, $text) = @_;
-    $self->twitty->post("statuses/retweet/$id", {
-    }, sub {
-        my ($header, $response, $reason) = @_;
-        $self->logging("retweeted: $user : $text\n");
-    });
+    if( $ENV{BOT_DEBUG} ) {
+        print encode_utf8("\@$user : $text\n");
+    }
+    else {
+        $self->twitty->post("statuses/retweet/$id", {
+        }, sub {
+            my ($header, $response, $reason, $error) = @_;
+            if( defined $error ) {
+                my $msg  = $error->{errors};
+                $self->logging("$msg", 'warn');
+                return;
+            }
+
+            $self->logging("retweeted: $user : $text\n");
+        });
+    }
 }
 
 # おはよーおはよーを実行するタイマーを返す
