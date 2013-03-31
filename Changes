@@ -1,4 +1,7 @@
 Revision history for Perl extension App::MilkianBot
+0.03    2013/03/31
+        - キーワードを元に検索する機能を追加
+
 0.02    2013/02/24
         - そろそろちゃんとバージョン管理しようかな
         - RT する対象にそらぴよ bot 追加
