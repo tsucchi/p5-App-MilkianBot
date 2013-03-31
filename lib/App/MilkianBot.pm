@@ -3,7 +3,11 @@ use strict;
 use warnings;
 use utf8;
 use Class::Accessor::Lite (
-    ro => ['my_id', '_cred', '_following_ids', 'twitty', '_mention_for', 'is_background'],
+    ro => [
+        'my_id',            '_cred',            '_following_ids', 'twitty',            '_mention_for', 
+        'is_background',    '_search_keywords', '_exclude_users', '_exclude_patterns', '_exclude_urls',
+        '_exclude_clients', 'search_interval',
+    ],
 );
 
 use AnyEvent::Twitter;
@@ -39,6 +43,95 @@ sub new {
             qr/(俺|オレ)のタンメンまだ(ー|〜)?(\?|？)/ => 'まだですぅー',
         },
         is_background => $is_background,
+
+        _exclude_users => [ # bot とか定期しかつぶやいてない人などを除外
+            'Hercule_B',
+            'Cordelia_G',
+            'reon8hirockyy',
+            'haru___sora',
+            'haru___sora2',
+            'haru___sora3',
+            'y_gates',
+            'tohoku_kitainu',
+            'Cordeliabot',
+            'G4_Hirano_chan',
+            'Hercule_bot',
+            'Souseki_I',
+            'Nero_9z',
+            'Yamazaki_8_bot',
+            'Nakatani_m_bot',
+            'butazuraTruk',
+            'nanakorokke',
+            'mera_azusa',
+            'Furuhashi_bot',
+            'Harasawa_bot',
+            'Yoh_T_bot',
+            'animejoho_ds4',
+            'animejoho_z72',
+            'animejoho_vc3',
+            'animejoho_g17',
+            'animejoho_252',
+            'animejoho_a09',
+            'animejoho_ss1',
+            'MukTom',
+            'Kazami_Kazuki',
+            'yukari_A_bot',
+            'benymd_bot',
+        ],
+        _exclude_patterns => [ # 定期ポストなどを除外
+            '^RT',
+            '#_キョクナビ',
+            '#nowplaying',
+            '#なうぷれ',
+            '【拡散希望】',
+            '#RTした人フォローする',
+            'そらまる団',
+            # どうやら中の人たちと同じ渾名をもってる方(みもりんっていっぱいいるのね。。。)
+            '@Mimo_Rine',
+            '@mmry09',
+            '@kamekazu_m',
+            '@mimori_ageha',
+        ],
+        _exclude_urls => [ # amazon とかに流そうとしてるやつは除外
+            'amazon.co.jp',
+            'amzn.to',
+            'eventernote.com',
+            'za4.ch',
+            'books.rakuten.co.jp',
+        ],
+        _exclude_clients => [ # 定期ポストに使っているクライアント
+            'twittbot.net',
+            'twiroboJP',
+            'makebot.sh',
+            'The_AutoTweet',
+            'BotMaker',
+            'ツイ助。',
+            '劣化コピー',
+            'なうぷれTunes',
+            'LikeBoard',
+            'SongsInfo on iOS',
+        ],
+        _search_keywords => [
+            '#milkyholmes',
+            'ミルキィホームズ',
+            'みもりん',
+            'そらまる',
+            'みころん',
+            'いず様',
+            '三森すずこ',
+            '徳井青空',
+            '佐々木未来',
+            '橘田いずみ',
+            'ミルキアン',
+            # ↓入れたいんだけど、ちょっとノイズが増えすぎるのでやめてる
+            # 'ミルキィ',
+            # 'シャロ',
+            # 'ネロ',
+            # 'エリー',
+            # 'エルキュール',
+            # 'コーデリア',
+        ],
+        search_interval => 60,
     };
     bless $self, $class;
     $self->_init_credential();
@@ -79,6 +172,32 @@ sub mention_for {
     return %{ $self->_mention_for };
 }
 
+sub search_keywords {
+    my ($self) = @_;
+    return @{ $self->_search_keywords };
+}
+
+sub exclude_users {
+    my ($self) = @_;
+    return @{ $self->_exclude_users };
+}
+
+sub exclude_patterns {
+    my ($self) = @_;
+    return @{ $self->_exclude_patterns };
+}
+
+sub exclude_urls {
+    my ($self) = @_;
+    return @{ $self->_exclude_urls };
+}
+
+sub exclude_clients {
+    my ($self) = @_;
+    return @{ $self->_exclude_clients };
+}
+
+
 # 単発の tweet を投げます
 sub simple_tweet {
     my ($self, $tweet) = @_;
@@ -102,6 +221,7 @@ sub run {
 
     my $cv = AnyEvent->condvar;
     my $good_morning_timer = $self->good_morning_timer();
+    my $search_timer       = $self->search_timer();
     my $listener = AnyEvent::Twitter::Stream->new(
         $self->credential,
         method   => 'filter',
@@ -131,6 +251,70 @@ sub run {
         },
     );
     $cv->recv;
+}
+
+# 検索時に使うための最新の ID をセットする
+sub update_latest_since_id {
+    my ($self) = @_;
+    $self->twitty->get('statuses/home_timeline', {
+        count => '1',
+    }, sub {
+        my ($header, $response, $reason) = @_;
+        if( defined $response->[0]->{id} ) {
+            $self->{since_id} = { since_id => $response->[0]->{id} };
+        }
+    });
+}
+
+# search を投げるためのタイマーを返す
+sub search_timer {
+    my ($self) = @_;
+    return AnyEvent->timer(
+        after    => 0,
+        interval => $self->search_interval || 60,
+        cb       => sub {
+            $self->update_latest_since_id();
+            for my $keyword ( $self->search_keywords ) {
+                $self->search_and_rt($keyword);
+            }
+        },
+    );
+}
+
+sub search_and_rt {
+    my ($self, $keyword) = @_;
+
+    $self->twitty->get('search/tweets', {
+        q => $keyword,
+        %{ $self->{since_id} || {} },
+    }, sub {
+        my ($header, $response, $reason) = @_;
+        my @tweets = @{ $response->{statuses} || [] };
+        for my $tweet ( sort { $a->{id} <=> $b->{id} } @tweets ) {
+            my $user   = $tweet->{user}->{screen_name};
+            my $text   = ($tweet->{text} || '');
+            my $id     = $tweet->{id};
+            my $client = $tweet->{source};
+
+            next if ( any { $_ eq $id          } @{ $self->{tweeted} || [] } );
+            next if ( any { $_ eq $user        } $self->exclude_users );
+            next if ( any { $text   =~ qr/$_/i } $self->exclude_patterns );
+            next if ( any { $client =~ qr/$_/i } $self->exclude_clients );
+            next if ( $self->is_exclude_url(@{ $tweet->{entities}->{urls} || [] } ) );
+
+            $self->do_rt($id, $user, $text);
+            push @{ $self->{tweeted} }, $id;
+        }
+    });
+}
+
+sub is_exclude_url {
+    my ($self, @urls) = @_;
+    for my $url ( @urls ) {
+        next if ( !defined $url->{expanded_url} );
+        return 1 if ( any { $url->{expanded_url} =~ qr/$_/ } $self->exclude_urls );
+    }
+    return;
 }
 
 # 公式 RT を投げる
@@ -250,7 +434,7 @@ App::MilkianBot - ミルキィホームズとか中の人っぽい発言をお�
 
 =head1 SYNOPSIS
 
-興味がある人は @milkian_bot をフォローしてね。
+興味がある人は @milkian_bot をフォローしてね。興味がなくて、RT されるのがウザいと思う方はお手数ですがブロックしてください。
 
 =head1 DESCRIPTION
 
@@ -261,6 +445,8 @@ App::MilkianBot - ミルキィホームズとか中の人っぽい発言をお�
 =item @milkian_bot に「TMTOWTDI」または「There's more than one way to do it」というメンションを投げると、「正解はひとつ！じゃない！！」と返します。
 
 =item @milkian_bot に「俺のタンメンまだー？」というメンションを投げると、「まだですぅー」と返します。
+
+=item ミルキィホームズとか、中の人っぽい話題を検索して、RT します。邪魔だと思われる方は、お手数ですが @milkian_bot をブロックしてください。
 
 =back
 
